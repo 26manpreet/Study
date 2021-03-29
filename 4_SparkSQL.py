@@ -13,7 +13,7 @@ http://spark.apache.org/docs/2.1.0/api/python/pyspark.sql.html?highlight=withcol
     DataFrame   : collection of data with column names , similar to tables
 
 
-- As sparkcontext is entry point for RDD. similarly,SparkSession provides a single entry point for dataframes.
+- As sparkcontext(sc) is entry point for RDD. similarly,SparkSession(spark) provides a single entry point for dataframes.
 - SparkSession is used to create Dataframes,register dataframes and execute sql queries.
 
            
@@ -24,6 +24,7 @@ Advantages:
     - can create user-defined functions(UDF) to increase spark functionalities
         1. create UDF
         2. register it in list of functions
+
 
 
 
@@ -53,6 +54,12 @@ Advantages:
 # stop spark session
     spark.stop()
 
+
+
+
+
+
+
 #====================================================================
 # Create DataFrames
 #====================================================================
@@ -70,88 +77,7 @@ Advantages:
     type(iphone_df)
 
 
-
-#2. from (csv,json,txt)
-    
-    # header -> use first line as column , by default column names are _C01,_C02,......
-    # schema with StructType is used for spark.read
-    # inferSchema -> decide datatype implicity , by reading entire data . Hence, for large dataset performance may impact.
-    df_csv  = spark.read.csv('orders.txt', header=True, inferSchema=True,sep=":")      # schema = , can define own schema too with StructType 
-                                                                                       # mode = PERMISSIVE    :  
-                                                                                                DROPMALFORMED : DROPMALFORMED : ignores the whole corrupted records.
-                                                                                                FAILFAST      :   throws an exception when it meets corrupted records.
-    # Read multple files
-    df_csv  = spark.read.csv(['orders_1.txt','orders_2.txt','orders_3.txt'], header=True, inferSchema=True,sep=":") 
-
-    df_json = spark.read.json('orders.txt', header=True, inferSchema=True)
-    df_txt  = spark.read.txt('orders.txt', header=True, inferSchema=True)
-    df_orc  = spark.read.orc("examples/src/main/resources/users.orc")
-
-
-
-
-    df = spark.read.load("examples/src/main/resources/people.json", format="json")
-    df = spark.read.load("examples/src/main/resources/people.csv",format="csv", sep=":", inferSchema="true", header="true")
-    #df_csv = spark.read.format('csv').option('sep',',').schema('order_id','order_date',......).load(path)
-    
-        
-    #--------INSPECT DATA----------------
-    df_csv.columns      # List of column names       --> ['order_id', 'order_dt', 'product_id', 'order_status']
-    df_csv.dtypes       # List of tuples (column_name,type) --> [('order_id', 'int'), ('order_dt', 'timestamp'), ('product_id', 'int'), ('order_status', 'string')]
-    df_csv.printSchema()# column name, type and nullable
-                             #root
-                           # - first_name: string (nullable = true)
-                           # - middle_name: string (nullable = true)
-                           # - last_name: string (nullable = true)
-                           # - dob: string (nullable = true)
-                           # - gender: string (nullable = true)
-                           # - salary: long (nullable = true)
-    df_csv.first()  # Row(order_id=1, order_dt=datetime.datetime(2013, 7, 25, 0, 0), product_id=11599, order_status='CLOSED'
-                    # row can be accessed as :
-                    #    row = Row(order_id=1)
-                    #    Row.order_id or Row['order_id']
-    df_csv.head(2)  # return first n rows in list of rows --> [Row(order_id=1, order_dt=datetime.datetime(2013, 7, 25, 0, 0), product_id=11599, order_status='CLOSED'), Row(order_id=2,
-    df_csv.describe()    #  DataFrame[summary: string, order_id: string, product_id: string, order_status: string]
-                         #  +-------+------------------+------------------+------------+
-                         #  |summary|          order_id|        product_id|order_status|
-                         #  +-------+------------------+------------------+------------+
-                         #  |  count|                10|                10|          10|
-                         #  |   mean|               5.5|            6998.7|        null|
-                         #  | stddev|3.0276503540974917|3961.0179401540486|        null|
-                         #  |    min|                 1|               256|      CLOSED|
-                         #  |    max|                10|             12111|  PROCESSING|
-                         #  +-------+------------------+------------------+------------+
-    df_csv.count()
-    
-    df_csv.show()               # default top 20 rows
-    df_csv.show(500)            # top 500 rows
-    df_csv.show(truncate=False) # Show full content of column in dataframe. By default, long columns are truncated
-    df_csv.disinct().show()     # show distinct values
-    
-    
-    df_csv.collect()            # return data as list of Row.
-        #>>> df.collect()
-        #[Row(age=2, name=u'Alice'), Row(age=5, name=u'Bob')]
-    
-    df.limit(2).show()         # return first 2 rows
-    
-
-
-
-#3. from HIVE 
-    - for this spark and hive should be integerated
-    orders = spark.read.table('retail.order')
-    spark.sql('select * from retail.orders').show()
-    
-    
-
-#4. From External database ( check for orcle too)
-    - reading data from JDBC (e.g from mysql via jdbc)
-
-
-
-
-#-----------------------------Simple Example-----------------------------------------
+# 2. Create dataframe manually ( Simple Example)
 from pyspark.sql import SparkSession
 
 spark = SparkSession.builder.appName('SparkByExamples.com').getOrCreate()
@@ -178,17 +104,60 @@ df.printSchema()
 # |-- salary: long (nullable = true)
 
 
-# illustration of user defined schema in spark.read
-from pyspark.sql.types import StructType,StructField, StringType, IntegerType, DateType
-schema = StructType([ \
-    StructField("order_id",IntegerType(),True), \
-    StructField("order_dt",DateType(),True), \
-    StructField("product_id",IntegerType(),True), \
-    StructField("order_status", StringType(), True), \
-  ])
-df_csv = spark.read.csv('C:\\Users\Money\Desktop\orders.txt',sep=",",schema=schema)
-#-------------------------------------------------------------------------------------
 
+
+
+
+#====================================================================
+#--------------- INSPECT DATA ------------------
+#====================================================================
+
+    df.columns      # List of column names       --> ['order_id', 'order_dt', 'product_id', 'order_status']
+    df.dtypes       # List of tuples (column_name,type) --> [('order_id', 'int'), ('order_dt', 'timestamp'), ('product_id', 'int'), ('order_status', 'string')]
+    df.printSchema()# column name, type and nullable
+                             #root
+                           # - first_name: string (nullable = true)
+                           # - middle_name: string (nullable = true)
+                           # - last_name: string (nullable = true)
+                           # - dob: string (nullable = true)
+                           # - gender: string (nullable = true)
+                           # - salary: long (nullable = true)
+    df.first()  # Row(order_id=1, order_dt=datetime.datetime(2013, 7, 25, 0, 0), product_id=11599, order_status='CLOSED'
+                    # row can be accessed as :
+                    #    row = Row(order_id=1)
+                    #    Row.order_id or Row['order_id']
+    df.head(2)  # return first n rows in list of rows --> [Row(order_id=1, order_dt=datetime.datetime(2013, 7, 25, 0, 0), product_id=11599, order_status='CLOSED'), Row(order_id=2,
+    df.describe()    #  DataFrame[summary: string, order_id: string, product_id: string, order_status: string]
+                         #  +-------+------------------+------------------+------------+
+                         #  |summary|          order_id|        product_id|order_status|
+                         #  +-------+------------------+------------------+------------+
+                         #  |  count|                10|                10|          10|
+                         #  |   mean|               5.5|            6998.7|        null|
+                         #  | stddev|3.0276503540974917|3961.0179401540486|        null|
+                         #  |    min|                 1|               256|      CLOSED|
+                         #  |    max|                10|             12111|  PROCESSING|
+                         #  +-------+------------------+------------------+------------+
+    df.count()
+    
+    df.show()               # default top 20 rows
+    df.show(500)            # top 500 rows
+    df.show(truncate=False) # Show full content of column in dataframe. By default, long columns are truncated
+    df.disinct().show()     # show distinct values
+    
+    
+    df.collect()            # return data as list of Row.
+        #>>> df.collect()
+        #[Row(age=2, name=u'Alice'), Row(age=5, name=u'Bob')]
+    
+    df.limit(2).show()         # return first 2 rows
+    
+
+
+
+
+#=====================================================================
+#------------------------ Dataframe conversions ----------------------
+#=====================================================================
 
 # RDD to DF
     df = RDD.toDF()
@@ -208,12 +177,156 @@ df_csv = spark.read.csv('C:\\Users\Money\Desktop\orders.txt',sep=",",schema=sche
 
 
 
-# WRITE INTO CSV FILE
+
+
+ #=====================================================================
+ #------------------------External Data Sources -----------------------
+ #=====================================================================
+
+ #--------------------------------
+ # 1. CSV , JSON , TEXT
+ #--------------------------------
+
+# Read files    
+    # header -> use first line as column , by default column names are _C01,_C02,......
+    # schema with StructType is used for spark.read
+    # inferSchema -> decide datatype implicity , by reading entire data . Hence, for large dataset performance may impact.
+    df_csv  = spark.read.csv('orders.csv', header=True, inferSchema=True,sep=":")      # schema = , can define own schema too with StructType 
+                                                                                       # Read modes
+                                                                                       #         PERMISSIVE    :  set feilds to nulll when encounters corrupted record ( Default mode)
+                                                                                       #         DROPMALFORMED : drop the malformed records.
+                                                                                       #         FAILFAST      : throws an exception when it meets corrupted records.
+    # Read multple files at once
+    df_csv  = spark.read.csv(['orders_1.txt','orders_2.txt','orders_3.txt'], header=True, inferSchema=True,sep=":") 
+
+
+    df_json = spark.read.json('orders.txt', header=True, inferSchema=True)
+    df_txt  = spark.read.txt('orders.txt', header=True, inferSchema=True)
+    
+    # Another way to read files
+    df_csv = spark.read.format('csv').option('sep',',').option("inferSchema", "true").schema('order_id','order_date',......).load('/home/user/orders.csv')
+
+
+
+# Write files 
+    df_csv.write.format("csv").mode("overwrite").option("sep", "\t").save("/tmp/my-tsv-file.tsv")
+   
+   # Mode
+        - append : add to existing data
+        - overwrite : truncate and load
+        - ignore : ignore operation if table exists
+        - errorIfExists : Raise error if table exists and fails process
+
+
+
+#--------------------------------
+# 2. Parquet and ORC
+#--------------------------------    
+df_orc  = spark.read.orc("examples/src/main/resources/users.orc")
+
+
+df.select("author", "title", "rank", "description") \
+        .write.save("Rankings_Descriptions.parquet")
+
+
+
+
+#--------------------------------
+# 3. Hive
+#--------------------------------
+    
+    # Prerequisite - spark and hive should be integerated
+    from pyspark.sql import SparkSession, HiveContext
+    spark = SparkSession.builder.appName('Test-pyspark-read-and-write-from-hive').enableHiveSupport().getOrCreate()
+
+
+
+    # Read from Hive
+    df = spark.sql('use test_db') 
+    df = spark.sql('SELECT * FROM Test')   # df = spark.sql(' Any Hive supported command')    
+    """
+    orders = spark.read.table('retail.order')
+    spark.sql('select * from retail.orders').show()
+    """
+
+    # Write into Hive
+    df.write.mode('overwrite').saveAsTable('test')   # 4 save modes can be used here too
+    
+
+
+#--------------------------------
+# 3. External database
+#--------------------------------
+#Pre-requisties
+        1. Database driver   ( ojdbc6-11.2.0.2.0.jar )
+        2. 2 options to use driver :
+            a. Set from program ( Specify driver to use)
+                    pyspark --conf spark.executor.extraClassPath="C:\spark\jars\ojdbc6-11.2.0.2.0.jar" --driver-class-path "C:\spark\jars\ojdbc6-11.2.0.2.0.jar" --jars "C:\spark\jars\ojdbc6-11.2.0.2.0.jar"
+            b. Spark-submit ( Specify driver to use)
+                    spark-submit --jars C:\spark\jars\ojdbc6-11.2.0.2.0  test.py
+
+
+    # READ from database
+    empDF = spark.read \
+        .format("jdbc") \
+        .option("url", "'jdbc:oracle:thin:@money-PC:1521:ORCL'") \
+        .option("dbtable", "emp") \
+        .option("user", "hr") \
+        .option("password", "hr") \
+        .option("driver", "oracle.jdbc.driver.OracleDriver") \
+        .load()
+
+
+    query = "(select empno,ename,dname from emp, dept where emp.deptno = dept.deptno) emp"
+    empDF = spark.read \
+        .format("jdbc") \
+        .option("url", "'jdbc:oracle:thin:@money-PC:1521:ORCL'") \
+        .option("dbtable", query) \
+        .option("user", "hr") \
+        .option("password", "hr") \
+        .option("driver", "oracle.jdbc.driver.OracleDriver") \
+        .load()
+
+
+    # Write to database
+    empDF = spark.write \
+        .format("jdbc") \
+        .option("url", "'jdbc:oracle:thin:@money-PC:1521:ORCL'") \
+        .option("dbtable", query) \
+        .option("user", "hr") \
+        .option("password", "hr") \
+        .option("driver", "oracle.jdbc.driver.OracleDriver") \
+        .mode('append').save()
+    
+
+    
+
+
+
+
+#------------------------------------------------------------------------------------
+# illustration of user defined schema in spark.read
+#------------------------------------------------------------------------------------
+from pyspark.sql.types import StructType,StructField, StringType, IntegerType, DateType
+
+schema = StructType( [ \
+    StructField("order_id",IntegerType(),True), \
+    StructField("order_dt",DateType(),True), \
+    StructField("product_id",IntegerType(),True), \
+    StructField("order_status", StringType(), True), \
+                    ] )
+
+df_csv = spark.read.csv('C:\\Users\Money\Desktop\orders.txt',sep=",",schema=schema)
+#-------------------------------------------------------------------------------------
+
+
+
+
 
 
 
 #====================================================================
-# DATAFRAME OPERATIONS
+# ----------------- DATAFRAME OPERATIONS ----------------------------
 #====================================================================
  - select
  - filter
@@ -245,7 +358,7 @@ df_csv = spark.read.csv('C:\\Users\Money\Desktop\orders.txt',sep=",",schema=sche
 
 # OTHER ALTERNATIVE WAYS TO SELECT COLUMNS  
     #Using Dataframe object name
-    df.select(df_order.order_id,df_order.order_dt).show()   # This way is used in expressions
+    df.select(df.order_id,df.order_dt).show()   # This way is used in expressions
     
     # Using col function
     from pyspark.sql.functions import col
@@ -261,7 +374,13 @@ df_csv = spark.read.csv('C:\\Users\Money\Desktop\orders.txt',sep=",",schema=sche
     df.select(substring('order_date',1,3),'order_date')
 
 # CASE    
-    df.select(df.name, F.when(df.age > 4, 1).when(df.age < 3, -1).otherwise(0)).show()
+    from pyspark.sql.functions import when
+    df.select(df.name, when(df.age > 4, 1).when(df.age < 3, -1).otherwise(0)).show()
+
+
+    from pyspark.sql.functions import expr
+    #Using Case When on withColumn()
+    df3 = df.withColumn("new_age", expr("CASE WHEN age > 4 THEN 1 WHEN age <3 THEN -1 WHEN age IS NULL THEN ' ' ELSE gender END"))
 
 # LIKE
     df.select("first_name",df.last_name.like("Singh")).show()
@@ -271,7 +390,9 @@ df_csv = spark.read.csv('C:\\Users\Money\Desktop\orders.txt',sep=",",schema=sche
     df.title.endswith("NT")).show(5)
     
 
-
+#--------------------------------------------
+#------------------ DDL/DML -----------------
+#--------------------------------------------
 # ADD COLUMN
     df.withColumn('order_month',substring('order_id',1,3)).show()  # withColumn ( new_Coulmn , new_column_expr) , new_column will replace exitsing column if with same name exists
 
@@ -321,11 +442,7 @@ df_csv = spark.read.csv('C:\\Users\Money\Desktop\orders.txt',sep=",",schema=sche
     # Obtaining contents of df as Pandas 
     df.toPandas()
     
-# Write & Save File in .parquet format
-    dataframe.select("author", "title", "rank", "description") \
-    .write \
-    .save("Rankings_Descriptions.parquet")
- 
+
  
 
 
@@ -413,6 +530,8 @@ df.show()
     df.replace('James','XXXX').show() # in complte dataset
 
     df.replace('M','Male',subset= ['gender']).show()  # for gender column only
+
+
 
  #--------------------------------------------
  #-------------------FILTER-------------------
@@ -545,6 +664,7 @@ ps: fillna() - better to uas as function name similar to pandas
     
 
 
+
  #-------------------------------------------
  #-------------------JOINS-------------------
  #-------------------------------------------
@@ -557,8 +677,9 @@ ps: fillna() - better to uas as function name similar to pandas
     df_inner = df1.join(df2,df1.order_id==df2.order_id,'inner')  # inner,left,right
     
     # left join 
-    df_left = df1.join(df2,df1.order_id==df2.order_id,'left').where ('order_item_order_id is null').show() # .count()
+    df_left = df1.join(df2,df1.order_id==df2.order_id,'left').where (df.order_date.isNull()).show() # .count()
  
+
   
  #--------------------------------------------
  #----------------Sorting---------------------
@@ -578,6 +699,7 @@ ps: fillna() - better to uas as function name similar to pandas
     spark.sql('select * from orders_VW order by order_status desc').show()
  
  
+
  
  #--------------------------------------------
  #-------------------AGGREGATE----------------
@@ -702,6 +824,9 @@ from pyspark.sql.functions import *
         - kurtosis(),skewness()
         
 
+
+
+
  #---------------------------------------------------------------------
  #-----------------SET OPERATIONS ( Union/Intersect/Subtract )---------
  #---------------------------------------------------------------------
@@ -717,6 +842,9 @@ from pyspark.sql.functions import *
  - union() - can duplicate elements too , to avoid it use:
     distinct_union_DF = df1.union(df2).distinct()
  
+
+
+
 
 
  #--------------------------------------------
@@ -807,6 +935,8 @@ from pyspark.sql.functions import *
  
  
  
+ 
+
  
  #--------------------------------------------
  #------ Pyspark user-define functions -------
