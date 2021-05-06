@@ -22,7 +22,8 @@
 		- Not suitable for OLTP , since doesnt supports insert/update at row level.
 		- No ACID support.
 		- Not for unstructured data.
-		
+
+
 
 --------------------------------------------
 -- how data is organised in hive 
@@ -38,7 +39,7 @@
 				  /user/hive/warehouse by default in HDFS.
 				  --e.g., /user/hive/warehouse/emp -- for emp table
 				- When table is dropped , data is deleted altogether		- Dropping table doesnt effect actual data in HDFS
-				- Use case : intermediate table for data processing			- Use case : processed data is present in HDFS , external table can be created for analysis
+				- Use case : intermediate table for data processing			- Use case : Analyse processed data present in HDFS
 																		
 
 	3. PARTITIONS -- ( when cardinality of column is low)
@@ -70,6 +71,11 @@
 -- Hive architecture
 ------------------------------------------------------------
 - Hive clients : interface through which query is passed - Hive CLI, Ambari UI
+		--3 ways to connect to Hive server:
+			1. Thrift Client: This is used to run all the hive commands using a different programming language 
+							  such as Java, C++, PHP, Python or Ruby.
+			2. ODBC Driver: This will support the ODBC protocol
+			3. JDBC Driver: This will support the JDBC protocol
 
 - Metastore  : stores metadata such as table, columns, partitions, location , Usually, as RDBMS and its details can be found at : hive-site.xml
 
@@ -164,7 +170,9 @@
 	hadoop fs - mkdir foo
 
 
-	
+	-- hive version
+	hive --version
+
 	--To get started with the hive shell, 
 	hive
 	--To come out of the hive shell, 
@@ -207,6 +215,7 @@
 		SHOW TABLES '*sam*'; -- Show tables name contains "sam"
 		SHOW TABLES '*sam|lily*'; -- Show tables name contains "sam" or
 	
+
 	-- create Internal table in database
 		create table [if not exists] emp
 		(id int,name string,city string,continent string)
@@ -219,6 +228,7 @@
 	
 	-- see structure of table
 		describe emp;
+		describe formatted emp; --formatted can be used to see metadata like managed or external table etc
 
 	-- create DDL statement of tables
 		SHOW CREATE TABLE emp;
@@ -289,33 +299,6 @@
 	create table emp_global_seq LIKE emp_global_orc stored as sequencefile ;
 
 
-----------------------------------
--- Loading data into Hive tables
-----------------------------------
--- Load file and skip first 3 lines ( top 3 lines contains file information)
-	create table emp ( id int, name varchar)  -- check varchar is allowed or not
-	row format delimited
-	fields terminated by ','
-	stored as textfile
-	tblproperties("skip.header.line.count"="3");
-
-
---Create table only if another table of the same name doesn’t exist and an input multiple values in a single column using an array,
-	create table if not exists sibling_data (
-	name string, age int, country string, siblings array<string> )
-	row format delimited
-	fields terminated by ‘ , ‘
-	collection items terminated by ‘#’
-	lines terminated by ‘\n’
-	stored as textfile ;
-
---create table with multiple inputs of different data type in a single column, 
-	create table auto_details(company string, model string, fuel string,
-	basic_specs struct<vehicle_type : string, doors : int, gears : int>,
-	engine_specs struct<cc : int, bhp : double>)
-	row format delimited
-	fields terminated by ','
-	collection items terminated by '#' ;
 
 
 -----------------------------------
@@ -465,7 +448,10 @@
 -----------------------------------
 -- Partitions
 -----------------------------------
-- partition table into sub table, to improve performance
+- Partition divides table into small segments, to improve performance.
+- Each partition will have separate directory/file
+- Only Suitable for low cardinality columns like - year,department. If we create partition on ID, timestamp column that will results in million partitions
+  and will impact again performance. In that case (high cardinality) buckets are preferred, e.g bucket1 - ID [1-100], bucket 2 - ID[101-200] etc.
 
 	create table emp_part (id int, name string, city string)
 	partitined by (country string) -- this column doesnt need to be specified above, it will be included implicitly
@@ -492,8 +478,8 @@
 
 -- INSERT DATA INTO PARTITIONS CAN BE DONE IN 2 WAYS :
 	1. STATIC PARTITIONING   :
-		- when you have limited and few set of values (like departments or state names etc), you can use static partitioning. 
-		- Static partitioning is faster for loading data as all of the information is already present in the query
+		- when we have LIMITED  set of partition values (like departments or state names etc), use static partitioning. 
+		- Static partitioning is FASTER for loading data as partition values are mentioned in query and only limited partitions get created acc to values.
 	
 		LOAD DATA LOCAL INPATH '${env:HOME}/staticinput.txt'
       	INTO TABLE partitioned_user
@@ -504,8 +490,10 @@
 		ALTER TABLE partitioned_user ADD PARTITION (country = 'US', state = 'CA')
     	LOCATION '/hive/external/tables/user/country=us/state=ca'
 
+
 	2. DYNAMIC PARTITIONING	:
-		- No need to mention parttion keys value . Suitable for many partitions
+		- No need to mention parttion keys value .Suitable for multiple values in which multiple partitions expected.
+		- Slower than Static partitions as partitions are automatically decided.
 		- to use dynamic partitioning , below parameter needs to be set as by default HIVE doesnt allows  dynamic partioning
 			set hive.exec.dynamic.partition=true;
 			set hive.exec.dynamic.partition.mode=nonstrict;
@@ -518,9 +506,13 @@
 
 -- check add/remove partitions
 
+
 -----------------------------------
 -- Bucketting
 -----------------------------------
+- Divides tables into smaller segments similar to partitions
+- Suitable for high cardinality columns.
+
 
 	set hive.enforce.bucketing = true;
 
@@ -529,32 +521,84 @@
 	PARTITIONED BY(ds STRING)
 	CLUSTERED BY(user_id) INTO 256 BUCKETS;
 
-	set hive.enforce.bucketing = true;  -- (Note: Not needed in Hive 2.x onward)
+	set hive.enforce.bucketing = true;  -- (Note: Not needed in Hive 2.x onwards)
 	FROM user_id
 	INSERT OVERWRITE TABLE user_info_bucketed
 	PARTITION (ds='2009-02-25')
 	SELECT userid, firstname, lastname WHERE ds='2009-02-25';
 
+
 ------------------------------------------
--- Data Manipulation
+-- Create HIVE tables
+------------------------------------------
+-- Load file and skip first 3 lines ( top 3 lines contains file information)
+	create table emp ( id int, name varchar)  -- check varchar is allowed or not
+	row format delimited
+	fields terminated by ','
+	stored as textfile
+	tblproperties("skip.header.line.count"="3");
+
+
+--Create table only if another table of the same name doesn’t exist and an input multiple values in a single column using an array,
+	create table if not exists sibling_data (
+	name string, age int, country string, siblings array<string> )
+	row format delimited
+	fields terminated by ‘ , ‘
+	collection items terminated by ‘#’
+	lines terminated by ‘\n’
+	stored as textfile ;
+
+--create table with multiple inputs of different data type in a single column, 
+	create table auto_details(company string, model string, fuel string,
+	basic_specs struct<vehicle_type : string, doors : int, gears : int>,
+	engine_specs struct<cc : int, bhp : double>)
+	row format delimited
+	fields terminated by ','
+	collection items terminated by '#' ;
+
+
+-- create table with location and parquet format
+	create table emp ( id int, name varchar)  
+	row format delimited
+	fields terminated by ','
+	stored as parquet
+ 	location '/data/in/employee_parquet' ;
+
+-- create a table with structure similar to existing table
+   create table emp_replica like emp;
+
+------------------------------------------
+-- Load Data into Hive Tables
 ------------------------------------------
 
---Load local data in a table, internal or external. 
+--1) using INSERT
+		-- using values
+		insert into table emp values (123,'ABC','XXX');
 
-	LOAD DATA LOCAL INPATH '/home/dayongd/Downloads/employee_hr.txt' OVERWRITE INTO TABLE employee_hr;
+		-- using Select statement
+		INSERT INTO TABLE employee SELECT * FROM ctas_employee;
 
---Load the local data to a partition:
-	LOAD DATA LOCAL INPATH '/home/dayongd/Downloads/employee.txt' OVERWRITE INTO TABLE employee_partitioned PARTITION (year=2018, month=12);
 
---Load data from HDFS to a table using the URI:
-	LOAD DATA INPATH '/tmp/hivedemo/data/employee.txt' INTO TABLE employee; -- Without OVERWRITE, it appends data
+--2) using LOAD
+	--a) From Local File System to HIVE
+		
+		--Load local data into table, internal or external. 
+		LOAD DATA LOCAL INPATH '/home/dayongd/Downloads/employee_hr.txt' OVERWRITE INTO TABLE employee_hr;
 
--- Use full URI
-	LOAD DATA INPATH 'hdfs://localhost:9000/tmp/hivedemo/data/employee.txt' OVERWRITE INTO TABLE employee;
+		--Load the local data to a partition:
+		LOAD DATA LOCAL INPATH '/home/dayongd/Downloads/employee_hr.txt' OVERWRITE INTO TABLE employee_partitioned PARTITION (year=2018, month=12);
 
--- insert data from another table
-	INSERT INTO TABLE employee SELECT * FROM ctas_employee;
 
+-- b) From Hadoop File System to HIVE
+
+		--Load data from HDFS to a table using the URI:
+		LOAD DATA INPATH '/tmp/hivedemo/data/employee.txt' INTO TABLE employee; -- Without OVERWRITE, it appends data
+
+		-- Use full URI
+		LOAD DATA INPATH 'hdfs://localhost:9000/tmp/hivedemo/data/employee.txt' OVERWRITE INTO TABLE employee;
+
+--3) using HDFS
+		hdfs dfs - put /localpath/emp.csv /user/hive/warehouse/emp
 
 
 -- Export import data???
@@ -652,6 +696,19 @@ column
 2. Design optimisation
 	-- correct partition and Bucket
 	-- correct index usuage  (same as SQL)
+		-- speed up retrieval operations
+		-- 2 types of indexes in HIVE:
+			1. Bitmap - for low cardinality
+			2. Compact
+
+			hive.optimize.index.filter = True -- will enable to use index in queries
+
+			create emp_idx on emp(id) as 'compact' -- or 'bitmap'
+			with deferred rebuild; -- clause used in rebuilding index
+
+			alter index emp_id on emp rebuild;
+
+			show formatted index on emp;
 
 3. Data optimisation
 	-- in terms of format, compression and storage		
