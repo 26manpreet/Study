@@ -39,7 +39,8 @@ Advantages:
 # or , create spark object explicitly
     from pyspark.sql import SparkSession  # pyspark.sql --> sql is subpackage of pyspark , SparkSession is class present in session module of pyspark.sql ( imports with pyspark.sql -> __init__.py)
     spark = SparkSession.builder.master('local').appName("Pyspark_example").config("spark.some.config.option", "some-value").getOrCreate()
-                                # or, master('local[2]') -- run in standalone mode , integer represent number of partitions created by RDD
+                                # or, master('local[2]') -- run in standalone mode , integer represent number of cores
+                                       
     
                     master           :   Sets the Spark master URL to connect to, such as "local" to run locally, "local[4]"
                                          to run locally with 4 cores, or "spark://master:7077" to run on a Spark standalone cluster.
@@ -56,6 +57,11 @@ Advantages:
 
 
 
+
+#create both spark and sc explicitly
+        from pyspark.sql import SparkSession
+        spark = SparkSession.builder.appName('Demo').getOrCreate()
+        sc = spark.sparkContext  # spark context from sparkSession
 
 
 
@@ -176,6 +182,7 @@ df.printSchema()
 
 
 
+ 
 
 
 
@@ -191,7 +198,7 @@ df.printSchema()
     # header -> use first line as column , by default column names are _C01,_C02,......
     # schema with StructType is used for spark.read
     # inferSchema -> decide datatype implicity , by reading entire data . Hence, for large dataset performance may impact.
-    df_csv  = spark.read.csv('orders.csv', header=True, inferSchema=True,sep=":")      # schema = , can define own schema too with StructType 
+    df_csv  = spark.read.csv('orders.csv', header=True, inferSchema=True, sep=":", mode='DROPMALFORMED')      # schema = , can define own schema too with StructType 
                                                                                        # Read modes
                                                                                        #         PERMISSIVE    :  set feilds to nulll when encounters corrupted record ( Default mode)
                                                                                        #         DROPMALFORMED : drop the malformed records.
@@ -203,13 +210,14 @@ df.printSchema()
     df_json = spark.read.json('orders.txt', header=True, inferSchema=True)
     df_txt  = spark.read.txt('orders.txt', header=True, inferSchema=True)
     
-    # Another way to read files
+    
+    # Another way to read files 
     df_csv = spark.read.format('csv').option('sep',',').option("inferSchema", "true").schema('order_id','order_date',......).load('/home/user/orders.csv')
 
 
 
 # Write files 
-    df_csv.write.format("csv").mode("overwrite").option("sep", "\t").save("/tmp/my-tsv-file.tsv")
+    df_csv.write.format("csv").option("mode", "overwrite").option("sep", "\t").save("/tmp/my-tsv-file.tsv")
    
    # Mode
         - append : add to existing data
@@ -220,8 +228,10 @@ df.printSchema()
 
 
 #--------------------------------
-# 2. Parquet and ORC
-#--------------------------------    
+# 2. Parquet , ORC, AVRO and XML
+#--------------------------------   
+spark.read.format('parquet').load('/home/user/test.parquet')
+ 
 df_orc  = spark.read.orc("examples/src/main/resources/users.orc")
 
 
@@ -326,14 +336,18 @@ df_csv = spark.read.csv('C:\\Users\Money\Desktop\orders.txt',sep=",",schema=sche
 
 
 #====================================================================
-# ----------------- DATAFRAME OPERATIONS ----------------------------
+# ----------------- DATAFRAME OPERATIONS /API's----------------------------
 #====================================================================
+
  - select
  - filter
  - join
  - aggragte
  - sort
  - analytical functions
+ 
+ select(), orderBy(), distinct() etc -- All these are SPARK API's to run on top of dataframes.
+ 
  
 #--------------------------------------------
 #------------------SELECT-------------------- 
@@ -382,12 +396,7 @@ df_csv = spark.read.csv('C:\\Users\Money\Desktop\orders.txt',sep=",",schema=sche
     #Using Case When on withColumn()
     df3 = df.withColumn("new_age", expr("CASE WHEN age > 4 THEN 1 WHEN age <3 THEN -1 WHEN age IS NULL THEN ' ' ELSE gender END"))
 
-# LIKE
-    df.select("first_name",df.last_name.like("Singh")).show()
 
-# STARTSWITH -ENDSWITH   
-    df.title.startswith("THE")).show(5) # similar to like
-    df.title.endswith("NT")).show(5)
     
 
 #--------------------------------------------
@@ -434,94 +443,6 @@ df_csv = spark.read.csv('C:\\Users\Money\Desktop\orders.txt',sep=",",schema=sche
 
     
     
-    
-    
-# Converting dataframe into an RDD
-    rdd = df.rdd
-    # Converting dataframe into a RDD of string dataframe.toJSON().first()
-    # Obtaining contents of df as Pandas 
-    df.toPandas()
-    
-
- 
-
-
-
-#-----------------------------------------------
-#-----------------  DATES ----------------------
-#-----------------------------------------------
-df = spark.createDataFrame( data= [('2020-02-20','2021-10-18',)], schema = ['start_dt','end_dt'])
-     # type would be String
-df.show()
-    """
-    +----------+----------+
-    |  start_dt|    end_dt|
-    +----------+----------+
-    |2020-02-20|2021-10-18|
-    +----------+----------+
-    """
-# current date and time 
-    from pyspark.sql.functions import current_date,current_timestamp
-    df.withColumn('curr_dt',current_date()).show()
-    """
-    +----------+----------+----------+
-    |  start_dt|    end_dt|   curr_dt|
-    +----------+----------+----------+
-    |2020-02-20|2021-10-18|2021-03-11|
-    +----------+----------+----------+
-    """
-
-    df.withColumn('curr_time',current_timestamp()).show(truncate=False)
-    """
-    +----------+----------+-----------------------+
-    |start_dt  |end_dt    |curr_time              |
-    +----------+----------+-----------------------+
-    |2020-02-20|2021-10-18|2021-03-11 18:51:13.174|
-    +----------+----------+-----------------------+
-    """
-
-
-# date to string
-    - date_format() - converts date/string to string value
-
-    from pyspark.sql.functions import date_format
-    df.select('start_Dt',date_format("start_dt",'dd/MM/yyyy').alias("dt_format")).show()
-        """
-        +----------+----------+
-        |  start_Dt| dt_format|
-        +----------+----------+
-        |2020-02-20|20/02/2020|
-        +----------+----------+
-        """
-    df.select('start_Dt',date_format("start_dt",'YYYY').alias("year")).show()
-        """
-        +----------+----+
-        |  start_Dt|year|
-        +----------+----+
-        |2020-02-20|2020|
-        +----------+----+
-        """
-
-# string to date
-    - to_date() - converts string column only to date
-
-    from pyspark.sql.functions import to_date
-    df.select(to_date('start_dt').alias("dt_format")).show()
-        """
-        +----------+
-        | dt_format|
-        +----------+
-        |2020-02-20|
-        +----------+
-        """
-# There are lot of other functions also available   --> pyspark.sql.functions  
-    date_add("start_dt",2)
-    add_months("start_dt",2)
-    quarter("start_dt")
-    last_day("start_dt")
-    datediff("end_dt","start_dt")
-    next_day("start_dt","Sun")
-    months_between("end_dt","start_dt")
 
 
 # ---------------------------------------------
@@ -544,18 +465,30 @@ df.show()
     
     df.where(df_order.order_status=='COMPLETE').show()
  
-    
-    # orders which are complte and were placed in August 2013 , IN and LIKE
-    df.filter( ( df.order_Status.isin ('COMPLETE','CLOSED') ) &  ( df.order_date.like('2013-08%')) ).show()   # and -> & , or -> | , not -> ~
-                    
+
     #orders that were placed on first day of month
     df.filter(date_format(df.order_date,'dd')=='01').select('order_date').show()()
                     
     df.select('order_id','order_date').where(df.order_status.isin('OPEN')).show()
     
+
     # between
     df.select(df.order_id.between(22, 24)).show() 
 
+
+    # LIKE
+    df.select("first_name",df.gender.like("M")).show()  # all dataset with true /false
+
+    df.where(df.gender.like('M')).show()  # only true dataset
+
+    # orders which are complte and were placed in August 2013 , IN and LIKE
+    df.filter( ( df.order_Status.isin ('COMPLETE','CLOSED') ) &  ( df.order_date.like('2013-08%')) ).show()   # and -> & , or -> | , not -> ~
+    
+
+
+    # STARTSWITH -ENDSWITH   
+    df.title.startswith("THE")).show(5) # similar to like
+    df.title.endswith("NT")).show(5)
 
 
 #--------------------------------------------
@@ -862,8 +795,8 @@ from pyspark.sql.functions import *
  
 1. row_number()
     
-    from pyspark.sql.window import Window
-    from pyspark.sql.functions import row_number
+    from pyspark.sql.window import Window # only for window specification
+    from pyspark.sql.functions import row_number,rank,lag,lead
     
     windowSpec = Window.partitionBy("department").orderBy("salary")
     df.withColumn("row_number",row_number().over(windowSpec)).show(truncate=False)
@@ -935,6 +868,86 @@ from pyspark.sql.functions import *
  
  
  
+
+
+#-----------------------------------------------
+#-----------------  DATES ----------------------
+#-----------------------------------------------
+df = spark.createDataFrame( data= [('2020-02-20','2021-10-18',)], schema = ['start_dt','end_dt'])
+     # type would be String
+df.show()
+    """
+    +----------+----------+
+    |  start_dt|    end_dt|
+    +----------+----------+
+    |2020-02-20|2021-10-18|
+    +----------+----------+
+    """
+# current date and time 
+    from pyspark.sql.functions import current_date,current_timestamp
+    df.withColumn('curr_dt',current_date()).show()
+    """
+    +----------+----------+----------+
+    |  start_dt|    end_dt|   curr_dt|
+    +----------+----------+----------+
+    |2020-02-20|2021-10-18|2021-03-11|
+    +----------+----------+----------+
+    """
+
+    df.withColumn('curr_time',current_timestamp()).show(truncate=False)
+    """
+    +----------+----------+-----------------------+
+    |start_dt  |end_dt    |curr_time              |
+    +----------+----------+-----------------------+
+    |2020-02-20|2021-10-18|2021-03-11 18:51:13.174|
+    +----------+----------+-----------------------+
+    """
+
+
+# date to string
+    - date_format() - converts date/string to string value
+
+    from pyspark.sql.functions import date_format
+    df.select('start_Dt',date_format("start_dt",'dd/MM/yyyy').alias("dt_format")).show()
+        """
+        +----------+----------+
+        |  start_Dt| dt_format|
+        +----------+----------+
+        |2020-02-20|20/02/2020|
+        +----------+----------+
+        """
+    df.select('start_Dt',date_format("start_dt",'YYYY').alias("year")).show()
+        """
+        +----------+----+
+        |  start_Dt|year|
+        +----------+----+
+        |2020-02-20|2020|
+        +----------+----+
+        """
+
+# string to date
+    - to_date() - converts string column only to date
+
+    from pyspark.sql.functions import to_date
+    df.select(to_date('start_dt').alias("dt_format")).show()
+        """
+        +----------+
+        | dt_format|
+        +----------+
+        |2020-02-20|
+        +----------+
+        """
+# There are lot of other functions also available   --> pyspark.sql.functions  
+    date_add("start_dt",2)
+    add_months("start_dt",2)
+    quarter("start_dt")
+    last_day("start_dt")
+    datediff("end_dt","start_dt")
+    next_day("start_dt","Sun")
+    months_between("end_dt","start_dt")
+
+
+
  
 
  
@@ -993,7 +1006,3 @@ Spark sql database - is just like file
         
 
 
--- create both spark and sc explicitly
-        from pyspark.sql import SparkSession
-        spark = SparkSession.builder.appName('Demo').getOrCreate()
-        sc = spark.sparkContext  # spark context from sparkSession
